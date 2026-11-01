@@ -1,0 +1,29 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Local-only working docs: kept across sessions, never pushed
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+PLAN.md
+.claude/
+research_notes/
+reports/
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+.next/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
