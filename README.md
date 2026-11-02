@@ -50,6 +50,17 @@ The agent proposes and the server decides. Rules in `lib/gate.ts` and `lib/propo
 - Attendees come before vendors while cash is short.
 - The app, not the model, decides whether to accept or contest a chargeback.
 
+## Other tools and sponsor integrations
+
+| Tool | How it is used |
+|---|---|
+| AG Studio (AG Grid) | The organizer's dashboard: custom widgets, theming and charts, plus the agent harness the AI runs on |
+| APIMatic ContextMatic | Plugin used in Claude Code to review the PayPal Orders and refund code against the PayPal Server SDK's documented behavior. It showed that a refund can return `FAILED` or `CANCELLED` without an error, which the app was counting as paid. That was fixed, along with safe retries on 409 responses and requesting the full order representation. The app calls PayPal's REST API directly, so ContextMatic was used for review, not to generate the integration |
+| Next.js and TypeScript | The web app and its API routes |
+| Neon Postgres | The hosted demo's database |
+| Vercel | Hosting for the demo |
+| Claude Code | Coding assistant during the build |
+
 ## Run it locally
 
 You need Node 22 and a PayPal sandbox **Business account registered in the US**. Sandbox accounts in some other countries cannot take card payments or send payouts.
