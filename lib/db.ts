@@ -1,8 +1,8 @@
 // One query interface over two databases: PGlite locally, Neon when DATABASE_URL is set.
 
 import { mkdirSync } from 'node:fs';
+import type { PGlite } from '@electric-sql/pglite';
 import { neon } from '@neondatabase/serverless';
-import { PGlite } from '@electric-sql/pglite';
 import { SCHEMA } from './schema';
 
 export interface Db {
@@ -36,8 +36,14 @@ function wrapNeon(url: string): Db {
   return db;
 }
 
+// Loaded only when needed, so a hosted build on Neon never pulls in PGlite's WASM.
+async function openPglite(dataDir?: string): Promise<Db> {
+  const { PGlite: Engine } = await import('@electric-sql/pglite');
+  return wrapPglite(new Engine(dataDir));
+}
+
 export async function createMemoryDb(): Promise<Db> {
-  const db = wrapPglite(new PGlite());
+  const db = await openPglite();
   await db.migrate();
   return db;
 }
@@ -49,7 +55,7 @@ export function getDb(): Promise<Db> {
   holder.backstopDb ??= (async () => {
     const url = process.env.DATABASE_URL;
     if (!url) mkdirSync('.data', { recursive: true });
-    const db = url ? wrapNeon(url) : wrapPglite(new PGlite('.data/pglite'));
+    const db = url ? wrapNeon(url) : await openPglite('.data/pglite');
     await db.migrate();
     return db;
   })().catch((error) => {
