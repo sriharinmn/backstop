@@ -4,7 +4,7 @@ import { useEffect, useMemo } from 'react';
 import { AgStudioAiModule, type AgAiHarness, type AgStudioApi } from 'ag-studio';
 import { AgStudio, AgStudioProvider } from 'ag-studio-react';
 import type { Snapshot } from '@/lib/queries';
-import { publishHarness, publishSnapshot } from './store';
+import { publishHarness, publishSnapshot, publishStudioApi } from './store';
 import { buildAgent } from './studio/agent';
 import { buildStudioData } from './studio/data';
 import { initialReport } from './studio/report';
@@ -40,7 +40,10 @@ export default function StudioSheet({ snapshot, licenseKey }: { snapshot: Snapsh
       <div style={{ position: 'absolute', inset: 0 }}>
         <Studio
           style={{ height: '100%', width: '100%' }}
-          onStudioReady={(event: { api: AgStudioApi }) => publishHarness(agentFor(event.api))}
+          onStudioReady={(event: { api: AgStudioApi }) => {
+            publishStudioApi(event.api);
+            publishHarness(agentFor(event.api));
+          }}
           data={data}
           initialState={initialReport}
           theme={formTheme}

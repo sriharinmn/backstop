@@ -40,3 +40,6 @@ Thumbs.db
 desktop.ini
 .vercel
 .env*
+
+# Keep the example file, despite the rule above.
+!.env.example

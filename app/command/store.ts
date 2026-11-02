@@ -3,7 +3,7 @@
 // The latest snapshot, shared with widgets that AG Studio mounts outside this React tree's context.
 
 import { useSyncExternalStore } from 'react';
-import type { AgAiHarness } from 'ag-studio';
+import type { AgAiHarness, AgStudioApi } from 'ag-studio';
 import type { Snapshot } from '@/lib/queries';
 
 let current: Snapshot | null = null;
@@ -39,4 +39,16 @@ export function publishHarness(next: AgAiHarness) {
 
 export function useHarness(): AgAiHarness | null {
   return useSyncExternalStore(subscribe, () => harness, () => null);
+}
+
+// Studio shows no page navigation in view mode, so the sheet's tabs drive it through its API.
+let studioApi: AgStudioApi | null = null;
+
+export function publishStudioApi(next: AgStudioApi) {
+  studioApi = next;
+  for (const listener of listeners) listener();
+}
+
+export function useStudioApi(): AgStudioApi | null {
+  return useSyncExternalStore(subscribe, () => studioApi, () => null);
 }

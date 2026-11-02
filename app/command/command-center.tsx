@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Snapshot } from '@/lib/queries';
 import { AgentPanel } from './agent-panel';
 import { clock, plural, usd } from './format';
+import { SheetTabs } from './sheet-tabs';
 import { Slip } from './slips';
 
 const WEBHOOK_LABEL: Record<string, string> = {
@@ -193,8 +194,11 @@ export function CommandCenter({ licenseKey }: { licenseKey?: string }) {
         )}
       </header>
 
-      <section className="studio-sheet" aria-label="Event dashboard">
-        <StudioSheet key={event.id} snapshot={snapshot} licenseKey={licenseKey} />
+      <section className="sheet" aria-label="Event dashboard">
+        <SheetTabs key={event.id} />
+        <div className="studio-sheet">
+          <StudioSheet key={event.id} snapshot={snapshot} licenseKey={licenseKey} />
+        </div>
       </section>
 
       <aside className="rail" aria-label="Slips waiting for your approval">
