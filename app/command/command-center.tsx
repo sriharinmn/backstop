@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Snapshot } from '@/lib/queries';
 import { AgentPanel } from './agent-panel';
 import { clock, plural, usd } from './format';
+import { myEvent, setMyEvent, snapshotUrl } from './my-event';
 import { SheetTabs } from './sheet-tabs';
 import { Slip } from './slips';
 
@@ -40,8 +41,12 @@ export function CommandCenter({ licenseKey }: { licenseKey?: string }) {
   const [acting, setActing] = useState<ReadonlySet<string>>(new Set());
 
   const refresh = useCallback(async () => {
-    const res = await fetch('/api/snapshot', { cache: 'no-store' });
-    if (res.ok) setSnapshot((await res.json()) as Snapshot | null);
+    const asked = myEvent();
+    const res = await fetch(snapshotUrl(asked), { cache: 'no-store' });
+    const next = res.ok ? ((await res.json()) as Snapshot | null) : undefined;
+    // The visitor may have cancelled or moved on while this was in flight.
+    if (asked !== myEvent()) return;
+    if (next !== undefined) setSnapshot(next);
     setLoaded(true);
   }, []);
 
@@ -86,7 +91,7 @@ export function CommandCenter({ licenseKey }: { licenseKey?: string }) {
         <h2>Nothing is on sale yet</h2>
         <p>
           This sells 24 tickets to a demo concert through the PayPal sandbox, so every payment and refund after it is
-          real sandbox money. It takes about 15 seconds.
+          real sandbox money. It takes about 20 seconds.
         </p>
         <button
           type="button"
@@ -113,6 +118,24 @@ export function CommandCenter({ licenseKey }: { licenseKey?: string }) {
   // Someone who has not replied and has no chargeback, so the page still offers the choice.
   const disputedIds = new Set(snapshot.disputes.map((d) => d.ticketId));
   const sampleTicket = tickets.find((t) => t.status === 'paid' && !disputedIds.has(t.id)) ?? tickets[0];
+
+  const cancelThisEvent = () =>
+    run('cancel', async () => {
+      // Claimed first, so a refresh mid-cancel stays here instead of moving to an untouched event.
+      setMyEvent(event.id);
+      const { taken } = await post<{ taken?: boolean }>('/api/scenario/cancel', { eventId: event.id });
+      if (taken) {
+        setMyEvent(null);
+        void refresh();
+        throw new Error('Someone else cancelled that event first, so it is theirs now.');
+      }
+    });
+
+  const startNewEvent = () =>
+    run('storm', async () => {
+      await post('/api/scenario', { ticketCount: 24 });
+      setMyEvent(null);
+    });
 
   const draftRefunds = () =>
     run('refunds', () =>
@@ -145,22 +168,12 @@ export function CommandCenter({ licenseKey }: { licenseKey?: string }) {
           </p>
           <div className="actions">
             {!cancelled && (
-              <button
-                type="button"
-                className="button"
-                disabled={busy !== null}
-                onClick={() => run('cancel', () => post('/api/scenario/cancel', { eventId: event.id }))}
-              >
+              <button type="button" className="button" disabled={busy !== null} onClick={cancelThisEvent}>
                 {busy === 'cancel' ? 'Cancelling' : 'Cancel the event'}
               </button>
             )}
             {cancelled && (
-              <button
-                type="button"
-                className="button-quiet"
-                disabled={busy !== null}
-                onClick={() => run('storm', () => post('/api/scenario', { ticketCount: 24 }))}
-              >
+              <button type="button" className="button-quiet" disabled={busy !== null} onClick={startNewEvent}>
                 {busy === 'storm' ? 'Selling 24 tickets through PayPal' : 'Start a new event'}
               </button>
             )}

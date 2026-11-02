@@ -4,6 +4,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Db } from './db';
 import type { Capture } from './paypal';
+import { freshEventIds } from './queries';
 
 export type Capturer = (input: {
   amountCents: number;
@@ -112,13 +113,59 @@ export async function seedEvent(db: Db, capture: Capturer, options: SeedOptions)
   return eventId;
 }
 
-export async function cancelEvent(db: Db, eventId: string, reason: string): Promise<void> {
+const DEMO_TICKETS = 24;
+
+// Two, so a visitor arriving while a replacement sells still lands on a clean event.
+export const SPARE_EVENTS = 2;
+
+function demoEvent(ticketCount: number): SeedOptions {
+  // Most of the ticket money has already gone on deposits, which is why cancelling hurts.
+  const averageTicketCents = 4700;
+
+  return {
+    name: 'Harbor Nights',
+    venue: 'Pier 9 Lawn',
+    startsAt: new Date(Date.now() + 13 * 3_600_000).toISOString(),
+    ticketCount,
+    spentCents: Math.round(ticketCount * averageTicketCents * 0.55),
+    spentNote: 'Venue and marquee deposits, paid in advance and not yet recovered.',
+    vendors: DEFAULT_VENDORS.map((vendor) => ({
+      ...vendor,
+      owedCents: Math.round((vendor.owedCents * ticketCount) / 120),
+    })),
+  };
+}
+
+// Hands over a waiting event when there is one, and sells a new one only when there isn't.
+export async function startEvent(db: Db, capture: Capturer, ticketCount = DEMO_TICKETS): Promise<string> {
+  if (ticketCount === DEMO_TICKETS) {
+    const [waiting] = await freshEventIds(db);
+    if (waiting) return waiting;
+  }
+  return seedEvent(db, capture, demoEvent(ticketCount));
+}
+
+export async function keepSpareEvents(db: Db, capture: Capturer): Promise<void> {
+  const waiting = (await freshEventIds(db)).length;
+  for (let spare = waiting; spare < SPARE_EVENTS; spare += 1) {
+    await seedEvent(db, capture, demoEvent(DEMO_TICKETS));
+  }
+}
+
+// Returns false if someone else got there first. Whoever cancels an event keeps it.
+export async function cancelEvent(db: Db, eventId: string, reason: string): Promise<boolean> {
   const at = new Date().toISOString();
-  await db.query(`update events set status = 'cancelled', cancelled_at = $2 where id = $1`, [eventId, at]);
+  const cancelled = await db.query(
+    `update events set status = 'cancelled', cancelled_at = $2 where id = $1 and status = 'on_sale' returning id`,
+    [eventId, at],
+  );
+  if (cancelled.length === 0) return false;
+
   await db.query(
     `insert into ledger (id, event_id, kind, amount_cents, reason, at) values ($1, $2, 'note', 0, $3, $4)`,
     [randomUUID(), eventId, reason, at],
   );
+  return true;
 }
 
 export type AttendeeChoice = 'refund' | 'transfer';

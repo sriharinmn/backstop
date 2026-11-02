@@ -14,14 +14,16 @@ A small organizer sells tickets through PayPal, then spends part of that money o
 
 No login is needed. The hosted demo runs on the PayPal sandbox with invented attendees.
 
-1. Open the site. If the current event is finished, click **Start a new event**. This sells 24 tickets through PayPal and takes about 20 seconds.
-2. Click **Cancel the event**. Attendee replies are simulated, and two attendees go straight to their card company.
+1. Open the site. You land on an untouched event with 24 tickets already sold through PayPal. If none is waiting, click **Sell the tickets**, which takes about 20 seconds.
+2. Click **Cancel the event**. That event is now yours, so other visitors cannot change it. Attendee replies are simulated, and two attendees go straight to their card company.
 3. Click **Ask the agent what to do**. It reads the numbers and drafts a slip.
 4. Approve the slip. Real sandbox refunds run, and any refund cash cannot cover stays held back.
 5. Ask the agent for a chart, such as "show how many attendees are in each status".
 6. After a few minutes, chargebacks are ready to answer. Click **Draft an answer**, then approve it.
 
 To see the other side, click **See what an attendee sees** in the pink banner. Attendees choose a refund or keep their ticket for the new date there.
+
+To run it again, click **Start a new event**.
 
 ## How PayPal is used
 

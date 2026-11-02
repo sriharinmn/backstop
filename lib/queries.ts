@@ -110,8 +110,11 @@ export async function getEvent(db: Db, eventId: string): Promise<EventRow> {
   };
 }
 
-export async function listEventIds(db: Db): Promise<string[]> {
-  const rows = await db.query<{ id: string }>('select id from events where ready order by starts_at desc');
+// Events nobody has cancelled yet, newest first. A new visitor lands on the first one.
+export async function freshEventIds(db: Db): Promise<string[]> {
+  const rows = await db.query<{ id: string }>(
+    `select id from events where ready and status = 'on_sale' order by starts_at desc`,
+  );
   return rows.map((r) => r.id);
 }
 
