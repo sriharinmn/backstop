@@ -17,6 +17,8 @@ reports/
 
 # Local data and test output
 .data/
+*.mp4
+*.srt
 .vercel/
 test-results/
 playwright-report/

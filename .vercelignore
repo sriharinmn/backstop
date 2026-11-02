@@ -13,6 +13,8 @@ IMPLEMENTATION.md
 SUBMISSION.md
 
 # Not needed to build the app.
+*.mp4
+*.srt
 tests
 scripts
 node_modules

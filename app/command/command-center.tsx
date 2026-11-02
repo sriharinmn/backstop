@@ -275,7 +275,13 @@ export function CommandCenter({ licenseKey }: { licenseKey?: string }) {
                     </span>
                     <span className="dots">{usd(proposal.amountCents)}</span>
                     <span className="filed-state" data-state={proposal.status}>
-                      {proposal.status === 'done' ? 'Paid' : proposal.status === 'failed' ? 'Failed' : 'Rejected'}
+                      {proposal.status === 'done'
+                        ? proposal.kind === 'chargeback_response'
+                          ? 'Filed'
+                          : 'Paid'
+                        : proposal.status === 'failed'
+                          ? 'Failed'
+                          : 'Rejected'}
                     </span>
                   </li>
                 ))}
