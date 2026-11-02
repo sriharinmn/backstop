@@ -8,15 +8,24 @@ CLAUDE.md
 CLAUDE.local.md
 AGENTS.md
 PLAN.md
+DESIGN.md
+IMPLEMENTATION.md
 .claude/
 research_notes/
 reports/
+
+# Local data and test output
+.data/
+test-results/
+playwright-report/
 
 # Dependencies and build output
 node_modules/
 dist/
 build/
 .next/
+next-env.d.ts
+*.tsbuildinfo
 .venv/
 venv/
 __pycache__/
