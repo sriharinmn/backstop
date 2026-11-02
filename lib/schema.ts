@@ -78,6 +78,10 @@ export const SCHEMA: string[] = [
     at text not null
   )`,
   `create index if not exists ledger_event on ledger (event_id, at)`,
+  `create table if not exists llm_usage (
+    day text primary key,
+    turns integer not null
+  )`,
   `create table if not exists webhook_events (
     id text primary key,
     type text not null,

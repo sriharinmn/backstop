@@ -1,0 +1,18 @@
+# Never upload secrets or private working docs to Vercel.
+.env
+.env.*
+.data
+.claude
+research_notes
+reports
+PLAN.md
+CLAUDE.md
+AGENTS.md
+DESIGN.md
+IMPLEMENTATION.md
+
+# Not needed to build the app.
+tests
+scripts
+node_modules
+.next

@@ -2,10 +2,16 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { isSameOrigin } from './guard';
 import { PayPalError } from './paypal';
 
 export function route<Args extends unknown[]>(handler: (...args: Args) => Promise<unknown>) {
   return async (...args: Args) => {
+    const [request] = args;
+    if (request instanceof Request && request.method !== 'GET' && !isSameOrigin(request.headers)) {
+      return NextResponse.json({ error: 'This action only works from the Backstop site.' }, { status: 403 });
+    }
+
     try {
       return NextResponse.json(await handler(...args));
     } catch (error) {

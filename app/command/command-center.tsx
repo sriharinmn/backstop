@@ -7,6 +7,15 @@ import { AgentPanel } from './agent-panel';
 import { clock, plural, usd } from './format';
 import { Slip } from './slips';
 
+const WEBHOOK_LABEL: Record<string, string> = {
+  'CUSTOMER.DISPUTE.CREATED': 'a new chargeback',
+  'CUSTOMER.DISPUTE.UPDATED': 'a chargeback update',
+  'CUSTOMER.DISPUTE.RESOLVED': 'a closed chargeback',
+  'PAYMENT.CAPTURE.REFUNDED': 'a refund',
+  'PAYMENT.PAYOUTS-ITEM.UNCLAIMED': 'a payout waiting to be claimed',
+  'PAYMENT.PAYOUTSBATCH.SUCCESS': 'a finished payout',
+};
+
 // AG Studio only runs in the browser.
 const StudioSheet = dynamic(() => import('./studio-sheet'), { ssr: false });
 
@@ -91,7 +100,7 @@ export function CommandCenter({ licenseKey }: { licenseKey?: string }) {
     );
   }
 
-  const { event, money, proposals, tickets, vendors } = snapshot;
+  const { event, money, proposals, tickets, vendors, lastWebhook } = snapshot;
   const cancelled = event.status === 'cancelled';
   // Oldest first, so the first thing drafted is the first thing the organizer sees.
   const pending = proposals
@@ -141,6 +150,16 @@ export function CommandCenter({ licenseKey }: { licenseKey?: string }) {
                 {busy === 'cancel' ? 'Cancelling' : 'Cancel the event'}
               </button>
             )}
+            {cancelled && (
+              <button
+                type="button"
+                className="button-quiet"
+                disabled={busy !== null}
+                onClick={() => run('storm', () => post('/api/scenario', { ticketCount: 24 }))}
+              >
+                {busy === 'storm' ? 'Selling 24 tickets through PayPal' : 'Start a new event'}
+              </button>
+            )}
           </div>
         </div>
         <div className="fields">
@@ -162,12 +181,20 @@ export function CommandCenter({ licenseKey }: { licenseKey?: string }) {
           </div>
         </div>
         {cancelled && (
-          <p className="banner">Attendee replies here are simulated for the demo. All money is real PayPal sandbox money.</p>
+          <p className="banner">
+            <span>Attendee replies here are simulated for the demo. All money is real PayPal sandbox money.</span>
+            {lastWebhook && (
+              <span>
+                PayPal last reported {WEBHOOK_LABEL[lastWebhook.type] ?? 'an update'} at {clock(lastWebhook.receivedAt)}
+                {lastWebhook.verified ? ', signature verified' : ', signature not verified'}.
+              </span>
+            )}
+          </p>
         )}
       </header>
 
       <section className="studio-sheet" aria-label="Event dashboard">
-        <StudioSheet snapshot={snapshot} licenseKey={licenseKey} />
+        <StudioSheet key={event.id} snapshot={snapshot} licenseKey={licenseKey} />
       </section>
 
       <aside className="rail" aria-label="Slips waiting for your approval">

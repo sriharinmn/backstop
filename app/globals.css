@@ -662,7 +662,11 @@ button {
 .banner {
   background: var(--pink);
   border-top: 1px solid var(--rule);
+  display: flex;
+  flex-wrap: wrap;
   font-size: 13.5px;
+  gap: 0 24px;
+  justify-content: space-between;
   padding: 4px 22px;
 }
 

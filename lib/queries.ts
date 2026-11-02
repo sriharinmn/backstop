@@ -83,6 +83,7 @@ export type Snapshot = {
   proposals: ProposalRow[];
   ledger: LedgerRow[];
   money: Money;
+  lastWebhook: { type: string; verified: boolean; receivedAt: string } | null;
 };
 
 type EventSql = {
@@ -289,14 +290,31 @@ export function computeMoney(event: EventRow, tickets: TicketRow[], vendors: Ven
   };
 }
 
+async function getLastWebhook(db: Db): Promise<Snapshot['lastWebhook']> {
+  const [row] = await db.query<{ type: string; verified: boolean; received_at: string }>(
+    'select type, verified, received_at from webhook_events order by received_at desc limit 1',
+  );
+  return row ? { type: row.type, verified: row.verified, receivedAt: row.received_at } : null;
+}
+
 export async function getSnapshot(db: Db, eventId: string): Promise<Snapshot> {
-  const [event, tickets, vendors, disputes, proposals, ledger] = await Promise.all([
+  const [event, tickets, vendors, disputes, proposals, ledger, lastWebhook] = await Promise.all([
     getEvent(db, eventId),
     getTickets(db, eventId),
     getVendors(db, eventId),
     getDisputes(db, eventId),
     getProposals(db, eventId),
     getLedger(db, eventId),
+    getLastWebhook(db),
   ]);
-  return { event, tickets, vendors, disputes, proposals, ledger, money: computeMoney(event, tickets, vendors, ledger) };
+  return {
+    event,
+    tickets,
+    vendors,
+    disputes,
+    proposals,
+    ledger,
+    lastWebhook,
+    money: computeMoney(event, tickets, vendors, ledger),
+  };
 }
