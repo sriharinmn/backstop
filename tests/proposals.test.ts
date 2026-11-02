@@ -197,6 +197,53 @@ describe('approveProposal', () => {
     expect(entry?.amountCents).toBe(-4000);
   });
 
+  it.each(['FAILED', 'CANCELLED'])('does not count a refund PayPal answers with %s as paid', async (status) => {
+    await seed();
+    const { proposal } = await createProposal(db, refundInput(['t1', 't2']));
+    const payments = fakePayments(calls);
+
+    const done = await approveProposal(
+      db,
+      {
+        ...payments,
+        refundCapture: async (captureId, input) => {
+          const refund = await payments.refundCapture(captureId, input);
+          return captureId === 'CAP1' ? { ...refund, status } : refund;
+        },
+      },
+      proposal.id,
+    );
+
+    expect(done.status).toBe('done');
+    expect(done.result).toMatchObject({ failed: [expect.objectContaining({ id: 't1' })] });
+    const snapshot = await getSnapshot(db, 'e1');
+    expect(snapshot.tickets.find((t) => t.id === 't1')?.status).toBe('refund_failed');
+    expect(snapshot.ledger.filter((l) => l.kind === 'refund')).toHaveLength(1);
+    expect(snapshot.money.refundedCents).toBe(4000);
+  });
+
+  it('counts a PENDING refund as paid, because PayPal has accepted it', async () => {
+    await seed();
+    const { proposal } = await createProposal(db, refundInput(['t1']));
+    const payments = fakePayments(calls);
+
+    const done = await approveProposal(
+      db,
+      {
+        ...payments,
+        refundCapture: async (captureId, input) => ({
+          ...(await payments.refundCapture(captureId, input)),
+          status: 'PENDING',
+        }),
+      },
+      proposal.id,
+    );
+
+    expect(done.status).toBe('done');
+    const snapshot = await getSnapshot(db, 'e1');
+    expect(snapshot.tickets[0].status).toBe('refunded');
+  });
+
   it('marks the proposal failed when every refund fails', async () => {
     await seed();
     const { proposal } = await createProposal(db, refundInput(['t1']));

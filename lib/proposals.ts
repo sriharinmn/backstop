@@ -208,6 +208,14 @@ async function runRefunds(db: Db, payments: Payments, proposal: ProposalRow, moc
             requestId: requestId(proposal.id, ticket.id),
             mockCode,
           });
+
+          // PayPal can answer without an error and still not refund. Only a refund it accepted counts.
+          if (refund.status === 'FAILED' || refund.status === 'CANCELLED') {
+            await db.query(`update tickets set status = 'refund_failed' where id = $1`, [ticket.id]);
+            failed.push({ id: ticket.id, message: `PayPal reported this refund as ${refund.status}.` });
+            return;
+          }
+
           const at = now();
           await db.query(`update tickets set status = 'refunded', refunded_at = $2 where id = $1`, [ticket.id, at]);
           await db.query(

@@ -66,7 +66,8 @@ async function call<T>(method: string, path: string, options: RequestOptions = {
       cached = null;
       continue;
     }
-    if ((res.status === 429 || res.status >= 500) && safeToRetry && attempt < 3) {
+    // 409 means an earlier call for this resource is still running, so a retry can succeed.
+    if ((res.status === 409 || res.status === 429 || res.status >= 500) && safeToRetry && attempt < 3) {
       await sleep(500 * 2 ** attempt);
       continue;
     }
@@ -123,7 +124,7 @@ export async function captureCard(input: {
   requestId: string;
 }): Promise<Capture> {
   const order = await call<OrderResponse>('POST', '/v2/checkout/orders', {
-    headers: { 'PayPal-Request-Id': input.requestId },
+    headers: { 'PayPal-Request-Id': input.requestId, Prefer: 'return=representation' },
     body: {
       intent: 'CAPTURE',
       purchase_units: [
