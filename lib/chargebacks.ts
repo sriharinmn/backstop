@@ -68,12 +68,53 @@ export async function raiseChargeback(db: Db, payments: DisputePayments, ticketI
   return id;
 }
 
+// PayPal closed the case and the attendee got the money. It has left the organizer's account whatever
+// was argued, so it goes in the ledger exactly once, or cash would be overstated.
+export async function recordChargebackPayout(db: Db, paypalDisputeId: string, refundedCents: number): Promise<void> {
+  if (refundedCents <= 0) return;
+
+  const [row] = await db.query<{ id: string; event_id: string; ticket_id: string | null }>(
+    'select id, event_id, ticket_id from disputes where paypal_dispute_id = $1',
+    [paypalDisputeId],
+  );
+  if (!row) return;
+
+  const recorded = await db.query(`select id from ledger where kind = 'refund' and paypal_ref = $1`, [paypalDisputeId]);
+  if (recorded.length > 0) return;
+
+  const [ticket] = row.ticket_id
+    ? await db.query<{ attendee_name: string }>('select attendee_name from tickets where id = $1', [row.ticket_id])
+    : [];
+  const at = new Date().toISOString();
+
+  await db.query(
+    `insert into ledger (id, event_id, kind, amount_cents, paypal_ref, reason, at)
+     values ($1, $2, 'refund', $3, $4, $5, $6)
+     on conflict (id) do nothing`,
+    [
+      `chargeback-${row.id}`,
+      row.event_id,
+      -refundedCents,
+      paypalDisputeId,
+      `PayPal closed this chargeback and paid ${ticket?.attendee_name ?? 'the attendee'} back.`,
+      at,
+    ],
+  );
+  if (row.ticket_id) {
+    await db.query(`update tickets set status = 'refunded', refunded_at = coalesce(refunded_at, $2) where id = $1`, [
+      row.ticket_id,
+      at,
+    ]);
+  }
+}
+
 export async function applyDispute(db: Db, row: DisputeRow, live: Dispute): Promise<void> {
   await db.query(
     `update disputes set status = $2, stage = $3, reason = $4, due_at = $5, outcome = $6, actions = $7, updated_at = $8
      where id = $1`,
     [row.id, live.status, live.stage, live.reason, live.dueAt, live.outcome, JSON.stringify(live.actions), new Date().toISOString()],
   );
+  if (live.status === 'RESOLVED') await recordChargebackPayout(db, row.paypalDisputeId, live.refundedCents);
 }
 
 export async function syncDisputes(db: Db, payments: Pick<DisputePayments, 'getDispute'>, eventId: string): Promise<void> {

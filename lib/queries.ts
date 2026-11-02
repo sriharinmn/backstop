@@ -269,8 +269,8 @@ export function computeMoney(event: EventRow, tickets: TicketRow[], vendors: Ven
 
   const soldCents = sumOf('ticket_sale');
   const spentCents = event.policy.spentCents ?? 0;
-  const refundedCents = -sumOf('refund');
-  const paidOutCents = -sumOf('payout');
+  const refundedCents = 0 - sumOf('refund');
+  const paidOutCents = 0 - sumOf('payout');
   const cashCents = cashAvailable(soldCents, spentCents + refundedCents + paidOutCents);
 
   const owedRefundsCents = tickets

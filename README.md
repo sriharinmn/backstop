@@ -21,7 +21,7 @@ No login is needed. The hosted demo runs on the PayPal sandbox with invented att
 5. Ask the agent for a chart, such as "show how many attendees are in each status".
 6. After a few minutes, chargebacks are ready to answer. Click **Draft an answer**, then approve it.
 
-Each attendee has a ticket page at `/t/<token>`, where they choose a refund or keep their ticket for the new date.
+To see the other side, click **See what an attendee sees** in the pink banner. Attendees choose a refund or keep their ticket for the new date there.
 
 ## How PayPal is used
 
@@ -90,3 +90,4 @@ app/t/[token]/       Attendee ticket page
 - This is sandbox only. Attendees and vendors are invented, and attendee replies in the demo are simulated.
 - AG Studio is a commercial product used here on a trial licence. The MIT licence covers this project's code, not AG Studio.
 - Accept or contest is a simple rule for this demo, and is not legal or financial advice.
+- In our sandbox tests, chargebacks forced with `adjudicate` and `SELLER_FAVOR` still closed as `RESOLVED_WITH_PAYOUT`, with the attendee paid. The app records that money as gone. We have not seen a contested chargeback close in the seller's favor.

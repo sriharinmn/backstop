@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createMemoryDb, type Db } from '@/lib/db';
 import {
+  applyDispute,
   chargebackExecutor,
   raiseChargeback,
   recommendResponse,
@@ -48,6 +49,7 @@ const liveDispute = (over: Partial<Dispute> = {}): Dispute => ({
   amountCents: 4000,
   dueAt: '2026-12-01T00:00:00Z',
   outcome: null,
+  refundedCents: 0,
   captureId: 'CAP1',
   customId: 't1',
   actions: ['accept_claim', 'provide_evidence'],
@@ -133,6 +135,80 @@ describe('syncDisputes', () => {
       dueAt: '2026-12-01T00:00:00Z',
       actions: ['accept_claim', 'provide_evidence'],
     });
+  });
+});
+
+describe('when PayPal closes a chargeback', () => {
+  const paidOut = liveDispute({
+    status: 'RESOLVED',
+    outcome: 'RESOLVED_WITH_PAYOUT',
+    refundedCents: 4000,
+    actions: [],
+  });
+
+  async function chargeback() {
+    await raiseChargeback(db, fakeDisputes(calls), 't1');
+  }
+
+  it('records the money leaving and closes the ticket, so cash is not overstated', async () => {
+    await seed('transferred');
+    await chargeback();
+
+    await syncDisputes(db, fakeDisputes(calls, paidOut), 'e1');
+
+    const snapshot = await getSnapshot(db, 'e1');
+    expect(snapshot.tickets[0].status).toBe('refunded');
+    expect(snapshot.money.refundedCents).toBe(4000);
+    expect(snapshot.money.cashCents).toBe(0);
+    expect(snapshot.ledger.find((l) => l.kind === 'refund')?.reason).toContain('PayPal closed this chargeback');
+  });
+
+  it('records it only once, however many times it is seen', async () => {
+    await seed('transferred');
+    await chargeback();
+    const { disputes } = await getSnapshot(db, 'e1');
+
+    await syncDisputes(db, fakeDisputes(calls, paidOut), 'e1');
+    await applyDispute(db, disputes[0], paidOut);
+
+    const snapshot = await getSnapshot(db, 'e1');
+    expect(snapshot.ledger.filter((l) => l.kind === 'refund')).toHaveLength(1);
+  });
+
+  it('does not count an accepted claim twice', async () => {
+    await seed('refund_requested');
+    await chargeback();
+    await syncDisputes(db, fakeDisputes(calls), 'e1');
+    const { disputes } = await getSnapshot(db, 'e1');
+    const { proposal } = await createProposal(db, {
+      eventId: 'e1',
+      kind: 'chargeback_response',
+      targetIds: [disputes[0].id],
+      reason: 'Owed.',
+      evidence: { action: 'accept', notes: 'Owed.' },
+      createdBy: 'backstop',
+    });
+    await approveProposal(db, noPayments, proposal.id, {
+      executors: { chargebackResponse: chargebackExecutor(fakeDisputes(calls)) },
+    });
+
+    await applyDispute(db, disputes[0], paidOut);
+
+    const snapshot = await getSnapshot(db, 'e1');
+    expect(snapshot.ledger.filter((l) => l.kind === 'refund')).toHaveLength(1);
+    expect(snapshot.money.refundedCents).toBe(4000);
+  });
+
+  it('records nothing when the organizer keeps the money', async () => {
+    await seed('transferred');
+    await chargeback();
+    const won = liveDispute({ status: 'RESOLVED', outcome: 'RESOLVED_SELLER_FAVOUR', refundedCents: 0, actions: [] });
+
+    await syncDisputes(db, fakeDisputes(calls, won), 'e1');
+
+    const snapshot = await getSnapshot(db, 'e1');
+    expect(snapshot.tickets[0].status).toBe('transferred');
+    expect(snapshot.money.refundedCents).toBe(0);
   });
 });
 

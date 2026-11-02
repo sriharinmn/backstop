@@ -679,6 +679,12 @@ button {
   margin-top: 6px;
 }
 
+.banner a {
+  color: var(--carbon);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
 /* ---- Before an event exists ---- */
 
 .empty-sheet {
@@ -718,8 +724,15 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  /* AG Studio needs about 600px. Scroll inside the sheet, so the page itself never scrolls sideways. */
+  .sheet {
+    height: 88dvh;
+    overflow-x: auto;
+  }
+
+  .sheet-tabs,
   .studio-sheet {
-    height: 70dvh;
+    min-width: 640px;
   }
 
   .rail {

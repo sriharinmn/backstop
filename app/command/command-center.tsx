@@ -110,6 +110,9 @@ export function CommandCenter({ licenseKey }: { licenseKey?: string }) {
   const filed = proposals.filter((p) => ['done', 'failed', 'rejected'].includes(p.status) && !acting.has(p.id));
   const wantRefund = tickets.filter((t) => t.status === 'refund_requested' || t.status === 'refund_failed');
   const unpaidVendors = vendors.filter((v) => v.status !== 'paid');
+  // Someone who has not replied and has no chargeback, so the page still offers the choice.
+  const disputedIds = new Set(snapshot.disputes.map((d) => d.ticketId));
+  const sampleTicket = tickets.find((t) => t.status === 'paid' && !disputedIds.has(t.id)) ?? tickets[0];
 
   const draftRefunds = () =>
     run('refunds', () =>
@@ -183,7 +186,14 @@ export function CommandCenter({ licenseKey }: { licenseKey?: string }) {
         </div>
         {cancelled && (
           <p className="banner">
-            <span>Attendee replies here are simulated for the demo. All money is real PayPal sandbox money.</span>
+            <span>
+              Attendee replies here are simulated for the demo. All money is real PayPal sandbox money.{' '}
+              {sampleTicket && (
+                <a href={`/t/${sampleTicket.token}`} target="_blank" rel="noreferrer">
+                  See what an attendee sees
+                </a>
+              )}
+            </span>
             {lastWebhook && (
               <span>
                 PayPal last reported {WEBHOOK_LABEL[lastWebhook.type] ?? 'an update'} at {clock(lastWebhook.receivedAt)}

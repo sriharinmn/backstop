@@ -1,6 +1,8 @@
 // PayPal tells us when things change. An event that fails verification is stored but never acted on.
 
+import { recordChargebackPayout } from './chargebacks';
 import type { Db } from './db';
+import { toCents } from './paypal';
 
 export type WebhookEvent = {
   id: string;
@@ -10,7 +12,7 @@ export type WebhookEvent = {
     status?: string;
     dispute_life_cycle_stage?: string;
     seller_response_due_date?: string;
-    dispute_outcome?: { outcome_code?: string };
+    dispute_outcome?: { outcome_code?: string; amount_refunded?: { value: string } };
   };
 };
 
@@ -51,5 +53,10 @@ export async function handleWebhook(db: Db, event: WebhookEvent, verified: boole
     ],
   );
 
-  return updated.length > 0 ? 'applied' : 'ignored';
+  if (updated.length === 0) return 'ignored';
+
+  if (status === 'RESOLVED') {
+    await recordChargebackPayout(db, disputeId, toCents(event.resource.dispute_outcome?.amount_refunded?.value ?? 0));
+  }
+  return 'applied';
 }

@@ -53,6 +53,32 @@ describe('handleWebhook', () => {
     expect(disputes[0].status).toBe('RESOLVED');
   });
 
+  it('records the money when a webhook says PayPal paid the attendee', async () => {
+    await db.query(
+      `insert into tickets (id, event_id, attendee_name, attendee_email, amount_cents, paypal_capture_id, status, token)
+       values ('t1', 'e1', 'Nora Whitlock', 'n@example.com', 4000, 'CAP1', 'transferred', 'tok')`,
+    );
+    await db.query(`update disputes set ticket_id = 't1' where id = 'd1'`);
+
+    await handleWebhook(
+      db,
+      {
+        id: 'WH-9',
+        event_type: 'CUSTOMER.DISPUTE.RESOLVED',
+        resource: {
+          dispute_id: 'PP-D-1',
+          status: 'RESOLVED',
+          dispute_outcome: { outcome_code: 'RESOLVED_WITH_PAYOUT', amount_refunded: { value: '40.00' } },
+        },
+      },
+      true,
+    );
+
+    const snapshot = await getSnapshot(db, 'e1');
+    expect(snapshot.tickets[0].status).toBe('refunded');
+    expect(snapshot.ledger.find((l) => l.kind === 'refund')?.amountCents).toBe(-4000);
+  });
+
   it('ignores a dispute it does not know', async () => {
     const event = disputeUpdated('WH-2');
     event.resource.dispute_id = 'PP-D-OTHER';

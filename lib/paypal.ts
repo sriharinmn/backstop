@@ -232,6 +232,7 @@ export type Dispute = {
   amountCents: number;
   dueAt: string | null;
   outcome: string | null;
+  refundedCents: number;
   captureId: string | null;
   customId: string | null;
   actions: string[];
@@ -244,7 +245,7 @@ type DisputeResponse = {
   reason?: string;
   dispute_amount?: { value: string };
   seller_response_due_date?: string;
-  dispute_outcome?: { outcome_code?: string };
+  dispute_outcome?: { outcome_code?: string; amount_refunded?: { value: string } };
   disputed_transactions?: { seller_transaction_id?: string; custom?: string }[];
   links?: { rel: string }[];
 };
@@ -258,6 +259,7 @@ function parseDispute(d: DisputeResponse): Dispute {
     amountCents: toCents(d.dispute_amount?.value ?? 0),
     dueAt: d.seller_response_due_date ?? null,
     outcome: d.dispute_outcome?.outcome_code ?? null,
+    refundedCents: toCents(d.dispute_outcome?.amount_refunded?.value ?? 0),
     captureId: d.disputed_transactions?.[0]?.seller_transaction_id ?? null,
     customId: d.disputed_transactions?.[0]?.custom ?? null,
     actions: (d.links ?? []).map((l) => l.rel).filter((rel) => rel !== 'self'),

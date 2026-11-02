@@ -14,10 +14,10 @@ const STATUS: Record<string, string> = {
 };
 
 const OUTCOME: Record<string, string> = {
-  RESOLVED_BUYER_FAVOUR: 'Closed for the attendee',
-  RESOLVED_SELLER_FAVOUR: 'Closed for you',
-  RESOLVED_WITH_PAYOUT: 'Closed by PayPal with a payout',
-  ACCEPTED: 'Closed, you accepted',
+  RESOLVED_BUYER_FAVOUR: 'Closed in the attendee\'s favor',
+  RESOLVED_SELLER_FAVOUR: 'Closed in your favor',
+  RESOLVED_WITH_PAYOUT: 'Closed. PayPal paid the attendee back.',
+  ACCEPTED: 'Closed. You accepted.',
 };
 
 function daysLeft(dueAt: string | null) {
@@ -78,7 +78,7 @@ export function ChargebackClock({ widgetApi }: AgWidgetParams) {
             const resolved = dispute.status === 'RESOLVED';
             return (
               <li key={dispute.id} data-urgent={!resolved && days !== null && days <= 3}>
-                <span className="clock-days dots">{resolved ? 'OK' : days === null ? '--' : `${days}d`}</span>
+                <span className="clock-days dots">{resolved || days === null ? '--' : `${days}d`}</span>
                 <span>
                   <strong>{dispute.ticketId ? names.get(dispute.ticketId) : 'Unknown ticket'}</strong>
                   <small>

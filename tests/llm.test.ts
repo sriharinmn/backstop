@@ -181,12 +181,60 @@ describe('callProviders', () => {
   const ok = (body: object) => new Response(JSON.stringify(body), { status: 200 });
   const env = { GROQ_API_KEY: 'g', GEMINI_API_KEY: 'k' };
   const request = { messages: [{ role: 'user', content: 'Hi' }] };
+  const withToolCall = {
+    messages: [
+      { role: 'user', content: 'Hi' },
+      {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{ id: 'c1', type: 'function', function: { name: 'a', arguments: '{}' } }],
+      },
+      { role: 'tool', tool_call_id: 'c1', content: '{}' },
+    ],
+  };
+
+  it('marks tool calls for Gemini, which refuses them otherwise', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(ok({ id: 'x' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await callProviders(withToolCall, { GEMINI_API_KEY: 'k' });
+
+    const sent = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(sent.messages[1].tool_calls[0].extra_content).toEqual({
+      google: { thought_signature: 'skip_thought_signature_validator' },
+    });
+  });
+
+  it('sends Groq the standard format, with nothing Gemini-specific', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(ok({ id: 'x' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await callProviders(withToolCall, { GROQ_API_KEY: 'g' });
+
+    const sent = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(sent.messages[1].tool_calls[0].extra_content).toBeUndefined();
+  });
+
+  it('can move to Gemini partway through a conversation Groq started', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{}', { status: 429 }))
+      .mockResolvedValueOnce(new Response('{}', { status: 429 }))
+      .mockResolvedValueOnce(ok({ id: 'x' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await callProviders(withToolCall, env);
+
+    expect(result.provider).toBe('gemini');
+    const sent = JSON.parse(fetchMock.mock.calls[2][1].body);
+    expect(sent.messages[1].tool_calls[0].extra_content).toBeDefined();
+  });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it('moves to the backup when the first provider is rate limited', async () => {
+  it('tries another model when the first is rate limited', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(new Response('{}', { status: 429 }))
@@ -195,9 +243,47 @@ describe('callProviders', () => {
 
     const result = await callProviders(request, env);
 
+    expect(result.provider).toBe('groq');
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).model).toBe('qwen/qwen3.8-27b');
+  });
+
+  it('moves to the backup when every Groq model is rate limited', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{}', { status: 429 }))
+      .mockResolvedValueOnce(new Response('{}', { status: 429 }))
+      .mockResolvedValueOnce(ok({ id: 'x' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await callProviders(request, env);
+
     expect(result.provider).toBe('gemini');
-    expect(fetchMock.mock.calls[0][0]).toContain('groq.com');
-    expect(fetchMock.mock.calls[1][0]).toContain('generativelanguage');
+    expect(fetchMock.mock.calls[2][0]).toContain('generativelanguage');
+  });
+
+  it('skips the other models of a provider whose key is rejected', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{}', { status: 401 }))
+      .mockResolvedValueOnce(ok({ id: 'x' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await callProviders(request, env);
+
+    expect(result.provider).toBe('gemini');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('tries the next Gemini model when one is overloaded', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{}', { status: 503 }))
+      .mockResolvedValueOnce(ok({ id: 'x' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await callProviders(request, { GEMINI_API_KEY: 'k' });
+
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).model).toBe('gemini-3.5-flash');
   });
 
   it('sends the key only to that key\'s provider and sets the model on the server', async () => {
