@@ -111,7 +111,7 @@ export async function getEvent(db: Db, eventId: string): Promise<EventRow> {
 }
 
 export async function listEventIds(db: Db): Promise<string[]> {
-  const rows = await db.query<{ id: string }>('select id from events order by starts_at desc');
+  const rows = await db.query<{ id: string }>('select id from events where ready order by starts_at desc');
   return rows.map((r) => r.id);
 }
 

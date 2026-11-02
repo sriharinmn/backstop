@@ -11,6 +11,7 @@ export const SCHEMA: string[] = [
     policy jsonb not null default '{}',
     cancelled_at text
   )`,
+  `alter table events add column if not exists ready boolean not null default true`,
   `create table if not exists tickets (
     id text primary key,
     event_id text not null references events (id) on delete cascade,

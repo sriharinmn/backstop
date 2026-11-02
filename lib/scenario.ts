@@ -62,7 +62,7 @@ export async function seedEvent(db: Db, capture: Capturer, options: SeedOptions)
   const eventId = randomUUID();
 
   await db.query(
-    `insert into events (id, name, venue, starts_at, status, policy) values ($1, $2, $3, $4, 'on_sale', $5)`,
+    `insert into events (id, name, venue, starts_at, status, policy, ready) values ($1, $2, $3, $4, 'on_sale', $5, false)`,
     [
       eventId,
       options.name,
@@ -107,6 +107,8 @@ export async function seedEvent(db: Db, capture: Capturer, options: SeedOptions)
     );
   }
 
+  // Only now does the event appear, so nobody can act on a half-sold event.
+  await db.query('update events set ready = true where id = $1', [eventId]);
   return eventId;
 }
 
